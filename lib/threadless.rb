@@ -8,6 +8,16 @@ class Threadless
       @threadless ||= Adapter.new(request)
     end
   end
+
+  def self.background?(m)
+    @background
+  end
+
+  def self.background=(m)
+    @background = m
+  end
+  
+  self.background = true
   
   #
   # The adapter; use it as
@@ -22,7 +32,7 @@ class Threadless
     end
     
     def run_later(run_later = true)
-      if run_later
+      if run_later && Threadless.background?
         @request.env[ENV_KEY] ||= []
         @request.env[ENV_KEY].push Proc.new
       else
@@ -71,15 +81,14 @@ class Threadless
     
     [ status, headers, body ]
   end
-end
+  
+  #
+  # -- activate instance methods and middleware, on Rails
+  def self.init
+    ActionController::Base.send(:include, Threadless::InstanceMethods)
+    ActionController::Base.send(:helper, Threadless::InstanceMethods)
 
-#
-# -- activate instance methods and middleware, on Rails
-
-if defined?(ActionController)
-  ActionController::Base.send(:include, Threadless::InstanceMethods)
-  ActionController::Base.send(:helper, Threadless::InstanceMethods)
-
-  middleware = ActionController::MiddlewareStack::Middleware.new(self)
-  ActionController::Dispatcher.middleware.push middleware
+    middleware = ActionController::MiddlewareStack::Middleware.new(self)
+    ActionController::Dispatcher.middleware.push middleware
+  end
 end
